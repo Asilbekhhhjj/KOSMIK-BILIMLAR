@@ -16,7 +16,6 @@ if (isset($_POST['login'])) {
     $stmt->execute([$user_id]);
     $user = $stmt->fetch();
 
-    // Oddiy parollar uchun tekshiruv (Bazada parollar qanday bo'lsa shunday tekshiradi)
     if ($user && $user['password'] === $password) {
         $_SESSION['student_id'] = $user['id'];
         header("Location: dashboard.php"); 
@@ -26,7 +25,6 @@ if (isset($_POST['login'])) {
     }
 }
 
-// Bazadan eski kodingiz kabi barcha foydalanuvchilaran olish
 $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -54,7 +52,7 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
 </head>
 <body class="space-bg min-h-screen flex items-center justify-center p-4">
 
-    <div class="absolute top-10 left-10 text-6xl opacity-30 rocket-bounce">🪐</div>
+    <div onclick="adminSecretRoute()" class="absolute top-10 left-10 text-6xl opacity-30 rocket-bounce cursor-pointer select-none">🪐</div>
     <div class="absolute bottom-10 right-10 text-6xl opacity-30 rocket-bounce" style="animation-delay: 1.5s;">🌍</div>
 
     <div class="bg-white/95 backdrop-blur-md p-6 sm:p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-8 border-cyan-400 max-w-md w-full text-center relative">
@@ -79,7 +77,6 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
                     <option value="" disabled selected>Men kimman? 🤔</option>
                     <?php foreach($users as $u): ?>
                         <?php 
-                        // Agar bazada avatar ustuni bo'lsa uni oladi, yo'q bo'lsa avtomatik yaratadi
                         $avatarUrl = (isset($u['avatar']) && $u['avatar']) ? $u['avatar'] : "https://api.dicebear.com/7.x/bottts/svg?seed=" . urlencode($u['firstname']); 
                         $gradeInfo = isset($u['grade']) ? $u['grade'] . "-sinf | " : "";
                         ?>
@@ -101,7 +98,7 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
                 <?php endfor; ?>
                 <button type="button" onclick="clearPin()" class="bg-rose-100 hover:bg-rose-200 text-rose-600 text-sm font-black p-3 rounded-xl transition active:scale-95 border-b-4 border-rose-300">O'chirish</button>
                 <button type="button" onclick="pressNum('0')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-black p-3 rounded-xl transition active:scale-95 border-b-4 border-slate-300">0</button>
-                <div class="bg-indigo-100 text-indigo-600 text-xl font-black p-3 rounded-xl flex items-center justify-center border-b-4 border-indigo-200 select-none">✨</div>
+                <div onclick="adminSecretRoute()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-600 text-xl font-black p-3 rounded-xl flex items-center justify-center border-b-4 border-indigo-200 select-none cursor-pointer">✨</div>
             </div>
 
             <button type="submit" name="login" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-black text-xl p-4 rounded-2xl transition shadow-lg shadow-indigo-200 transform active:scale-95 duration-200 text-center mt-2 border-b-4 border-indigo-800">
@@ -142,11 +139,29 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
 
         const pinInput = document.getElementById('pin-input');
         function pressNum(num) {
-            if(pinInput.value.length < 6) { // Maksimal uzunlikni 6 qildik (eski kodingizga mos)
+            if(pinInput.value.length < 6) {
                 pinInput.value += num;
             }
         }
         function clearPin() { pinInput.value = ""; }
+
+        // YASHIRIN ADMIN PANEL LOGIKASI
+        let clickCount = 0;
+        let clickTimeout;
+
+        function adminSecretRoute() {
+            clickCount++;
+            
+            // Agar bosishlar orasidagi vaqt 2 soniyadan oshib ketsa, hisoblagichni nollaymiz
+            clearTimeout(clickTimeout);
+            clickTimeout = setTimeout(() => { clickCount = 0; }, 2000);
+
+            // Ketma-ket 5 marta bosilganda admin login sahifasiga o'tkazadi
+            if (clickCount === 5) {
+                clickCount = 0;
+                window.location.href = "admin.php"; 
+            }
+        }
     </script>
 </body>
 </html>
