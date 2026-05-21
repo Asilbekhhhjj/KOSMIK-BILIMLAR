@@ -1,15 +1,15 @@
 <?php
 // db.php
 
-// Render'dan olingan aniq va to'g'ri ma'lumotlar
-$host    = 'dpg-d876usd7vvec738oatvg-a.oregon-postgres.render.com'; // External Database URL ichidan olingan xost
+// 1. Render'dan olingan aniq ma'lumotlar
+$host    = 'dpg-d876usd7vvec738oatvg-a.oregon-postgres.render.com';
 $port    = '5432';
 $db      = 'bbt_gaid';
 $user    = 'bbt_gaid_user';
-$pass    = '8J0sWG9wIP9m99sstLnG3Tmbo1zr52xl'; // Siz yuborgan aniq parol
+$pass    = '8J0sWG9wIP9m99sstLnG3Tmbo1zr52xl';
 
 try {
-    // Render majburiy talab qilgan SSL rejimi bilan ulanish
+    // 2. SSL rejim bilan ulanish
     $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=require;";
     
     $pdo = new PDO($dsn, $user, $pass, [
@@ -18,8 +18,20 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    // Ulanish muvaffaqiyatli bo'lsa, hech qanday xato chiqmaydi va loyiha ishlaydi
+    // 3. MANA SHU YERGA YOZILADI: users jadvali yo'q bo'lsa, avtomatik yaratish
+    $sql = "CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        firstname VARCHAR(100),
+        lastname VARCHAR(100) NOT NULL,
+        email VARCHAR(150),
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'student',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );";
+    
+    $pdo->exec($sql);
 
 } catch (\PDOException $e) {
+    // Agar ulanishda yoki jadval yaratishda xato bo'lsa ko'rsatadi
     die("Baza bilan aloqa yo'q! Xato tafsiloti: " . $e->getMessage());
 }
