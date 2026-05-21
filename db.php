@@ -1,6 +1,7 @@
 <?php
 // db.php
 
+// 1. Render platformasidan olingan ulanish ma'lumotlari
 $host    = 'dpg-d876usd7vvec738oatvg-a.oregon-postgres.render.com';
 $port    = '5432';
 $db      = 'bbt_gaid';
@@ -8,6 +9,7 @@ $user    = 'bbt_gaid_user';
 $pass    = '8J0sWG9wIP9m99sstLnG3Tmbo1zr52xl';
 
 try {
+    // 2. PostgreSQL DSN satriga Render talab qilgan SSL rejimini majburiy kiritdik
     $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=require;";
     
     $pdo = new PDO($dsn, $user, $pass, [
@@ -16,17 +18,13 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    // 🔥 MUHIM: Strukturani yangilash uchun eski chala jadvallarni o'chirib tashlaymiz (Faqat 1 marta bajariladi)
-    // Agar eski jadvallar bo'lsa, ularni to'liq tozalaydi
-    $pdo->exec("DROP TABLE IF EXISTS attempts CASCADE;");
-    $pdo->exec("DROP TABLE IF EXISTS questions CASCADE;");
-    $pdo->exec("DROP TABLE IF EXISTS quizzes CASCADE;");
-    $pdo->exec("DROP TABLE IF EXISTS users CASCADE;");
+    // ------------------------------------------------------------------------
+    // 👍 JADVALLARNI FAQAT YO'Q BO'LSA YARATAMIZ (IF NOT EXISTS)
+    // Bu kodlar bor jadvallarga mutloqo tegmaydi, ichidagi ma'lumotlarni o'chirmaydi!
+    // ------------------------------------------------------------------------
 
-    // 🚀 ENDI JADVALLARNI ENG TO'G'RI VARIANTDA BOSHQADAN YARATAMIZ
-
-    // 1. O'quvchilar jadvali (Hamma kerakli ustunlar bilan)
-    $pdo->exec("CREATE TABLE users (
+    // [1] O'quvchilar jadvali
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         firstname VARCHAR(50) NOT NULL,
         lastname VARCHAR(50) NOT NULL,
@@ -35,8 +33,8 @@ try {
         avatar VARCHAR(255) DEFAULT NULL
     );");
 
-    // 2. Testlar jadvali
-    $pdo->exec("CREATE TABLE quizzes (
+    // [2] Testlar jadvali
+    $pdo->exec("CREATE TABLE IF NOT EXISTS quizzes (
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         grade INT NOT NULL,
@@ -45,8 +43,8 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );");
 
-    // 3. Savollar jadvali
-    $pdo->exec("CREATE TABLE questions (
+    // [3] Savollar jadvali
+    $pdo->exec("CREATE TABLE IF NOT EXISTS questions (
         id SERIAL PRIMARY KEY,
         quiz_id INT NOT NULL,
         question_text TEXT NOT NULL,
@@ -58,8 +56,8 @@ try {
         FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
     );");
 
-    // 4. Urinishlar va natijalar jadvali
-    $pdo->exec("CREATE TABLE attempts (
+    // [4] Urinishlar va natijalar jadvali
+    $pdo->exec("CREATE TABLE IF NOT EXISTS attempts (
         id SERIAL PRIMARY KEY,
         user_id INT NOT NULL,
         quiz_id INT NOT NULL,
@@ -71,13 +69,17 @@ try {
         FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
     );");
 
-    // 5. Boshlang'ich mitti botirlarni toza jadvalga kiritish
-    $pdo->exec("INSERT INTO users (firstname, lastname, grade, password) VALUES 
-        ('Asilbek', 'Eshonqulov', 1, '1111'),
-        ('Oydina', 'Ziyodullayeva', 1, '2222'),
-        ('Jasur', 'Karimov', 2, '3333'),
-        ('Madina', 'Aliyeva', 3, '4444');");
+    // [5] Aqlli Tekshiruv: Agar baza butkul bo'sh bo'lsa, mitti botirlarni bir marta qo'shadi
+    $checkUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+    if ($checkUsers == 0) {
+        $pdo->exec("INSERT INTO users (firstname, lastname, grade, password) VALUES 
+            ('Asilbek', 'Eshonqulov', 1, '1111'),
+            ('Oydina', 'Ziyodullayeva', 1, '2222'),
+            ('Jasur', 'Karimov', 2, '3333'),
+            ('Madina', 'Aliyeva', 3, '4444');");
+    }
 
 } catch (\PDOException $e) {
+    // Xatolik yuz bersa, uni ekranga chiroyli qilib chiqaradi
     die("Baza bilan aloqa yo'q! Xato tafsiloti: " . $e->getMessage());
 }
