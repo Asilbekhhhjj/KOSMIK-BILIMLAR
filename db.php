@@ -1,15 +1,15 @@
 <?php
 // db.php
 
-// 1. Render panelidagi ma'lumotlar
-$host    = 'dpg-d876usd7vvec738oatvg-a.oregon-postgres.render.com'; // External Hostname
+// Render'dan olingan aniq va to'g'ri ma'lumotlar
+$host    = 'dpg-d876usd7vvec738oatvg-a.oregon-postgres.render.com'; // External Database URL ichidan olingan xost
 $port    = '5432';
 $db      = 'bbt_gaid';
 $user    = 'bbt_gaid_user';
-$pass    = '8J0sWG9wiP9m99sstLnG3Tmbo1zr52xl';
+$pass    = '8J0sWG9wIP9m99sstLnG3Tmbo1zr52xl'; // Siz yuborgan aniq parol
 
 try {
-    // 2. MUHIM O'ZGARISH: DSN satrining oxiriga "sslmode=require" qo'shildi
+    // Render majburiy talab qilgan SSL rejimi bilan ulanish
     $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=require;";
     
     $pdo = new PDO($dsn, $user, $pass, [
@@ -18,11 +18,8 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    // Agar hammasi muvaffaqiyatli bo'lsa, hech narsa chiqmaydi (yoki tekshirish uchun quyidagidan foydalanish mumkin)
-    // echo "Baza bilan aloqa bor!"; 
+    // Ulanish muvaffaqiyatli bo'lsa, hech qanday xato chiqmaydi va loyiha ishlaydi
 
 } catch (\PDOException $e) {
-    // Xavfsizlik nuqtai nazaridan parollar ko'rinib qolmasligi uchun xabarni tozalaymiz
-    // Lekin hozir tekshiruv jarayonida xatoni aniq ko'rish uchun quyidagicha qoldiramiz:
     die("Baza bilan aloqa yo'q! Xato tafsiloti: " . $e->getMessage());
 }
