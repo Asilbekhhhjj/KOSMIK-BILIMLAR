@@ -2,15 +2,13 @@
 // admin.php
 require 'db.php';
 
-// BA'ZA STRUKTURASINI TEKSHIRISH VA TO'LDIRISH (PostgreSQL moslashtirilgan)
+// BA'ZA STRUKTURASINI TEKSHIRISH VA TO'LDIRISH
 try {
-    // Agar parollar ustuni bo'lmasa qo'shish
     $pdo->query("SELECT password FROM users LIMIT 1");
 } catch (Exception $e) {
     $pdo->query("ALTER TABLE users ADD COLUMN password VARCHAR(255) DEFAULT '1234'");
 }
 
-// Uyga vazifalar jadvali bormi? Yo'q bo'lsa avtomatik yaratamiz (PostgreSQL SERIAL ishlatadi)
 $pdo->query("CREATE TABLE IF NOT EXISTS homeworks (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255),
@@ -21,7 +19,32 @@ $pdo->query("CREATE TABLE IF NOT EXISTS homeworks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 
-// --- AMALLAR (POST & GET SO'ROVLARI) ---
+// --- AJAX ORQALI SAHIFANI YANGILAMASDAN SAVOL QO'SHISH ---
+if (isset($_POST['ajax_add_question'])) {
+    header('Content-Type: application/json');
+    try {
+        $stmt = $pdo->prepare("INSERT INTO questions (quiz_id, question_text, option_a, option_b, option_c, option_d, correct_option) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            (int)$_POST['quiz_id'], 
+            $_POST['question_text'], 
+            $_POST['option_a'], 
+            $_POST['option_b'], 
+            $_POST['option_c'], 
+            $_POST['option_d'], 
+            $_POST['correct_option']
+        ]);
+
+        // Ushbu testda hozir jami nechta savol bo'lganini qaytaramiz
+        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM questions WHERE quiz_id = ?");
+        $stmtCount->execute([(int)$_POST['quiz_id']]);
+        $currentCount = $stmtCount->fetchColumn();
+
+        echo json_encode(['status' => 'success', 'message' => 'Savol saqlandi!', 'current_count' => $currentCount]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
 
 // 1. Yangi o'quvchi qo'shish
 if (isset($_POST['add_user'])) {
@@ -35,7 +58,7 @@ if (isset($_POST['add_user'])) {
     header("Location: admin.php?msg=O'quvchi qo'shildi"); exit;
 }
 
-// 2. O'quvchi ma'lumotlarini o'zgartirish (Tahrirlash)
+// 2. O'quvchi ma'lumotlarini o'zgartirish
 if (isset($_POST['edit_user'])) {
     $stmt = $pdo->prepare("UPDATE users SET firstname = ?, lastname = ?, grade = ?, password = ? WHERE id = ?");
     $stmt->execute([$_POST['firstname'], $_POST['lastname'], (int)$_POST['grade'], $_POST['password'], (int)$_POST['user_id']]);
@@ -69,13 +92,6 @@ if (isset($_POST['create_quiz'])) {
     $stmt = $pdo->prepare("INSERT INTO quizzes (title, grade, time_limit, max_attempts) VALUES (?, ?, ?, ?)");
     $stmt->execute([$_POST['title'], (int)$_POST['quiz_grade'], (int)$_POST['time_limit'], (int)$_POST['max_attempts']]);
     header("Location: admin.php?msg=Test yaratildi"); exit;
-}
-
-// 7. Qo'lda (Ruchnoy) savol qo'shish
-if (isset($_POST['add_question'])) {
-    $stmt = $pdo->prepare("INSERT INTO questions (quiz_id, question_text, option_a, option_b, option_c, option_d, correct_option) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([(int)$_POST['quiz_id'], $_POST['question_text'], $_POST['option_a'], $_POST['option_b'], $_POST['option_c'], $_POST['option_d'], $_POST['correct_option']]);
-    header("Location: admin.php?msg=Savol qo'shildi"); exit;
 }
 
 // 8. Testni o'chirish
@@ -119,7 +135,6 @@ if (isset($_POST['generate_ai_questions'])) {
     header("Location: admin.php?msg=" . $inserted . " ta AI savollari yuklandi"); exit;
 }
 
-
 // --- MA'LUMOTLARNI BAZADAN YUKLAB OLISH ---
 $rankings = $pdo->query("
     SELECT u.id, u.firstname, u.lastname, u.grade, u.password,
@@ -158,14 +173,18 @@ $attempts = $pdo->query("
             <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80" class="absolute inset-0 w-full h-full object-cover opacity-20">
             <div class="relative">
                 <h1 class="text-2xl md:text-3xl font-black tracking-wide">👑 PREMIUM ADMIN BOSHQARUV MARKAZI</h1>
-                <p class="text-sm text-cyan-400 font-bold mt-1">Reytinglar, parollar, qo'lda savollar va uyga vazifalar nazorati.</p>
+                <p class="text-sm text-cyan-400 font-bold mt-1">Reytinglar, parollar, uzluksiz savollar va uyga vazifalar nazorati.</p>
             </div>
-            <a href="index.php" target="_blank" class="relative bg-amber-400 text-slate-950 font-black px-6 py-3 rounded-2xl hover:bg-amber-500 transition shadow-lg">Tizim Asosiy Oynasi 🌍</a>
+            <div class="flex gap-2 relative">
+                <a href="admin.php" class="bg-slate-800 text-white font-black px-4 py-3 rounded-2xl hover:bg-slate-700 transition">🔄 Yangilash</a>
+                <a href="index.php" target="_blank" class="bg-amber-400 text-slate-950 font-black px-5 py-3 rounded-2xl hover:bg-amber-500 transition shadow-lg">Asosiy Sahifa 🌍</a>
+            </div>
         </div>
 
         <?php if (isset($_GET['msg'])): ?>
-            <div class="bg-emerald-50 border-2 border-emerald-200 text-emerald-700 p-4 rounded-2xl font-black mb-6 text-sm">
-                🚀 Muvaffaqiyatli: <?= htmlspecialchars($_GET['msg']) ?>
+            <div id="status-alert" class="bg-emerald-50 border-2 border-emerald-200 text-emerald-700 p-4 rounded-2xl font-black mb-6 text-sm flex justify-between items-center">
+                <span>🚀 Muvaffaqiyatli: <?= htmlspecialchars($_GET['msg']) ?></span>
+                <button onclick="document.getElementById('status-alert').remove()" class="text-xl">&times;</button>
             </div>
         <?php endif; ?>
 
@@ -323,9 +342,11 @@ $attempts = $pdo->query("
                             <tr class="hover:bg-slate-50 transition">
                                 <td class="p-4 text-slate-900 font-black"><?= htmlspecialchars($q['title']) ?></td>
                                 <td class="p-4"><span class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-black"><?= $q['grade'] ?>-Sinf</span></td>
-                                <td class="p-4 text-indigo-600"><?= $q['q_count'] ?> ta savol</td>
+                                <td class="p-4 text-indigo-600">
+                                    <span id="q-count-<?= $q['id'] ?>"><?= $q['q_count'] ?></span> ta savol
+                                </td>
                                 <td class="p-4 flex flex-wrap justify-center gap-1.5">
-                                    <button onclick="openQuestionModal(<?= $q['id'] ?>, '<?= htmlspecialchars(addslashes($q['title'])) ?>')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-xs transition">➕ Ruchnoy</button>
+                                    <button onclick="openQuestionModal(<?= $q['id'] ?>, '<?= htmlspecialchars(addslashes($q['title'])) ?>')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-xs transition">➕ Savol kiritish</button>
                                     <button onclick="openAIModal(<?= $q['id'] ?>, '<?= htmlspecialchars(addslashes($q['title'])) ?>', <?= $q['grade'] ?>)" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-3 py-2 rounded-xl text-xs transition">🤖 AI Generator</button>
                                     <a href="admin.php?delete_quiz=<?= $q['id'] ?>" onclick="return confirm('Testni o\'chirmoqchimisiz?')" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition">🗑 O'chirish</a>
                                 </td>
@@ -373,15 +394,14 @@ $attempts = $pdo->query("
                     <tbody class="divide-y divide-slate-100 font-bold text-slate-700">
                         <?php if(empty($attempts)): ?>
                             <tr><td colspan="8" class="p-8 text-center text-slate-400 font-medium">Hozircha urinishlar yo'q.</td></tr>
-                        <?php else: ?>
-                            <?php foreach($attempts as $att): ?>
+                        <?php if(!empty($attempts)) foreach($attempts as $att): ?>
                             <tr class="hover:bg-slate-50 transition">
                                 <td class="p-4 text-slate-400">#<?= $att['id'] ?></td>
                                 <td class="p-4 text-slate-900 font-black"><?= htmlspecialchars($att['lastname'] . ' ' . $att['firstname']) ?></td>
                                 <td class="p-4"><?= $att['u_grade'] ?>-sinf</td>
                                 <td class="p-4 text-indigo-600"><?= htmlspecialchars($att['quiz_title']) ?></td>
                                 <td class="p-4"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs"><?= $att['attempt_number'] ?>-urinish</span></td>
-                                <td class="p-4 text-center"><?= $att['correct_answers'] ?> / <?= $att['total_questions'] ?></td>
+                                <td class="p-4 text-center"><?= $att['score'] ?> / <?= $att['total_questions'] ?></td>
                                 <td class="p-4 text-emerald-600 bg-emerald-50/50"><?= $att['score'] ?> %</td>
                                 <td class="p-4 text-xs text-slate-500"><?= $att['completed_at'] ?></td>
                             </tr>
@@ -433,28 +453,43 @@ $attempts = $pdo->query("
     <div id="qModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center hidden p-4 z-50">
         <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <h3 class="text-lg font-black text-slate-950" id="mTitle">📌 Qo'lda Savol qo'shish (Ruchnoy)</h3>
+                <div>
+                    <h3 class="text-lg font-black text-slate-950" id="mTitle">📌 Savol qo'shish</h3>
+                    <p class="text-xs text-emerald-600 font-bold mt-0.5 animate-pulse" id="ajax-status">Muvaffaqiyatli saqlandi! Keyingi savolni yozishingiz mumkin 👇</p>
+                </div>
                 <button onclick="closeQuestionModal()" class="text-slate-400 text-2xl font-bold">&times;</button>
             </div>
-            <form action="" method="POST" class="space-y-4">
+            
+            <form id="ajaxQuestionForm" class="space-y-4">
+                <input type="hidden" name="ajax_add_question" value="1">
                 <input type="hidden" name="quiz_id" id="mQuizId">
+                
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-1">Savol Matni</label>
-                    <textarea name="question_text" required placeholder="Savolni bu yerga yozing..." rows="2" class="w-full p-3 border-2 border-slate-200 rounded-2xl font-bold"></textarea>
+                    <textarea name="question_text" id="q_text" required placeholder="Masalan: 12 + 5 nechchi bo'ladi?" rows="2" class="w-full p-3 border-2 border-slate-200 rounded-2xl font-bold focus:border-indigo-500 focus:outline-none"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="text" name="option_a" required placeholder="A javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium">
-                    <input type="text" name="option_b" required placeholder="B javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium">
-                    <input type="text" name="option_c" required placeholder="C javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium">
-                    <input type="text" name="option_d" required placeholder="D javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium">
+                    <input type="text" name="option_a" id="q_a" required placeholder="A javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium focus:border-indigo-500 focus:outline-none">
+                    <input type="text" name="option_b" id="q_b" required placeholder="B javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium focus:border-indigo-500 focus:outline-none">
+                    <input type="text" name="option_c" id="q_c" required placeholder="C javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium focus:border-indigo-500 focus:outline-none">
+                    <input type="text" name="option_d" id="q_d" required placeholder="D javob" class="p-2.5 border-2 border-slate-200 rounded-xl font-medium focus:border-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1">To'g'ri javob varianti</label>
-                    <select name="correct_option" class="w-full p-2.5 border-2 border-slate-200 rounded-xl bg-white font-bold">
-                        <option value="A">A Variant</option><option value="B">B Variant</option><option value="C">C Variant</option><option value="D">D Variant</option>
+                    <select name="correct_option" id="q_ans" class="w-full p-2.5 border-2 border-slate-200 rounded-xl bg-white font-bold focus:border-indigo-500 focus:outline-none">
+                        <option value="A">A Variant</option>
+                        <option value="B">B Variant</option>
+                        <option value="C">C Variant</option>
+                        <option value="D">D Variant</option>
                     </select>
                 </div>
-                <button type="submit" name="add_question" class="w-full bg-indigo-600 text-white p-3 rounded-xl font-black shadow">Savolni Saqlash 💾</button>
+                
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeQuestionModal()" class="w-1/3 bg-slate-100 text-slate-700 font-black p-3 rounded-xl">Tugatish ❌</button>
+                    <button type="submit" id="submitBtn" class="w-2/3 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl font-black shadow flex items-center justify-center gap-2">
+                        <span>Keyingi Savolni Saqlash 💾</span>
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -469,7 +504,6 @@ $attempts = $pdo->query("
                 <input type="hidden" name="quiz_id" id="aiQuizId">
                 <input type="hidden" name="quiz_title" id="aiQuizTitle">
                 <input type="hidden" name="quiz_grade" id="aiQuizGrade">
-                
                 <div>
                     <p class="text-sm font-bold text-slate-600">Test: <span id="aiDisplayTitle" class="text-cyan-600"></span></p>
                     <p class="text-xs font-bold text-slate-400 mt-1">AI ushbu test uchun mantiqiy savollarni avtomatik yaratib beradi.</p>
@@ -488,47 +522,103 @@ $attempts = $pdo->query("
     </div>
 
     <script>
+        // Holat bildirish matnini yashirish
+        document.getElementById('ajax-status').style.display = 'none';
+
         // 1. O'quvchi Tahrirlash Modali
-        function openEditUserModal(id, firstname, lastname, grade, password) {
+        function openEditUserModal(id, fname, lname, grade, pass) {
             document.getElementById('edit_user_id').value = id;
-            document.getElementById('edit_firstname').value = firstname;
-            document.getElementById('edit_lastname').value = lastname;
+            document.getElementById('edit_firstname').value = fname;
+            document.getElementById('edit_lastname').value = lname;
             document.getElementById('edit_grade').value = grade;
-            document.getElementById('edit_password').value = password;
+            document.getElementById('edit_password').value = pass;
             document.getElementById('userEditModal').classList.remove('hidden');
         }
         function closeEditUserModal() {
             document.getElementById('userEditModal').classList.add('hidden');
         }
 
-        // 2. Ruchnoy Savol Qo'shish Modali
-        function openQuestionModal(quizId, quizTitle) {
-            document.getElementById('mQuizId').value = quizId;
-            document.getElementById('mTitle').innerText = "📌 Savol qo'shish: " + quizTitle;
+        // 2. Savol Qo'shish Modali (Yangi format)
+        function openQuestionModal(id, title) {
+            document.getElementById('mQuizId').value = id;
+            document.getElementById('mTitle').innerText = "📌 [" + title + "] testiga savol qo'shish";
+            document.getElementById('ajax-status').style.display = 'none';
+            document.getElementById('ajaxQuestionForm').reset();
             document.getElementById('qModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('q_text').focus(), 100);
         }
         function closeQuestionModal() {
             document.getElementById('qModal').classList.add('hidden');
         }
 
-        // 3. AI Generator Modali
-        function openAIModal(quizId, quizTitle, quizGrade) {
-            document.getElementById('aiQuizId').value = quizId;
-            document.getElementById('aiQuizTitle').value = quizTitle;
-            document.getElementById('aiQuizGrade').value = quizGrade;
-            document.getElementById('aiDisplayTitle').innerText = quizTitle + " (" + quizGrade + "-sinf)";
+        // 3. AI Generatsiya Modali
+        function openAIModal(id, title, grade) {
+            document.getElementById('aiQuizId').value = id;
+            document.getElementById('aiQuizTitle').value = title;
+            document.getElementById('aiQuizGrade').value = grade;
+            document.getElementById('aiDisplayTitle').innerText = title;
             document.getElementById('aiModal').classList.remove('hidden');
         }
         function closeAIModal() {
             document.getElementById('aiModal').classList.add('hidden');
         }
 
-        // Modaldan tashqariga bosilganda yopilishi uchun qulaylik:
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('userEditModal')) closeEditUserModal();
-            if (event.target == document.getElementById('qModal')) closeQuestionModal();
-            if (event.target == document.getElementById('aiModal')) closeAIModal();
-        }
+        // 🚀 ENG ASOSIY QISM: SAHIFANI YANGILAMASDAN SAVOL QO'SHISH JAVASCRIPT KODI (AJAX)
+        document.getElementById('ajaxQuestionForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Sahifa yangilanib ketishini to'xtatamiz
+
+            const submitBtn = document.getElementById('submitBtn');
+            const statusText = document.getElementById('ajax-status');
+            const quizId = document.getElementById('mQuizId').value;
+            
+            // Tugmani yuklanish holatiga o'tkazamiz
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = "<span>Saqlanmoqda... ⏳</span>";
+
+            // Formadagi ma'lumotlarni yig'ish
+            const formData = new FormData(this);
+
+            // PHP backendga so'rov yuborish
+            fetch('admin.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = "<span>Keyingi Savolni Saqlash 💾</span>";
+
+                if (data.status === 'success') {
+                    // 1. Yashil bildirishnomani ko'rsatish
+                    statusText.style.display = 'block';
+                    
+                    // 2. Asosiy sahifadagi jadval ichida turgan savollar sonini jonli ravishda yangilash
+                    const countSpan = document.getElementById('q-count-' + quizId);
+                    if (countSpan) {
+                        countSpan.innerText = data.current_count;
+                    }
+
+                    // 3. Inputlarni tozalash (Keyingi savol uchun tayyorlash)
+                    document.getElementById('q_text').value = '';
+                    document.getElementById('q_a').value = '';
+                    document.getElementById('q_b').value = '';
+                    document.getElementById('q_c').value = '';
+                    document.getElementById('q_d').value = '';
+                    document.getElementById('q_ans').selectedIndex = 0;
+
+                    // 4. Kursorni avtomatik ravishda yana savol yozish matniga olib borib qo'yish
+                    document.getElementById('q_text').focus();
+                } else {
+                    alert('Xatolik yuz berdi: ' + data.message);
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = "<span>Keyingi Savolni Saqlash 💾</span>";
+                console.error('Error:', error);
+                alert('Server bilan bog\'lanishda xato!');
+            });
+        });
     </script>
 </body>
 </html>
