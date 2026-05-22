@@ -48,9 +48,77 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
             50% { transform: translateY(-10px); }
         }
         .rocket-bounce { animation: bounce-slow 3s infinite ease-in-out; }
+
+        /* 🚀 PRELOADER (YUKLANISH ANIMATSIYASI) STILI */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f172a; /* To'q ko'k kosmik fon */
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        /* Sayyora va uning atrofida aylanadigan raketa animatsiyasi */
+        .orbit-loader {
+            position: relative;
+            width: 150px;
+            height: 150px;
+        }
+        .center-planet {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3.5rem;
+            animation: pulse 2s infinite ease-in-out;
+        }
+        .rocket-orbit {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px dashed rgba(34, 211, 238, 0.3);
+            border-radius: 50%;
+            animation: spin 3s infinite linear;
+        }
+        .orbit-rocket {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            font-size: 2rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
     </style>
 </head>
 <body class="space-bg min-h-screen flex items-center justify-center p-4">
+
+    <div id="preloader">
+        <div class="orbit-loader mb-6">
+            <div class="center-planet">🪐</div>
+            <div class="rocket-orbit">
+                <div class="orbit-rocket">🚀</div>
+            </div>
+        </div>
+        <h2 class="fun-title text-2xl sm:text-3xl text-white tracking-wide text-center px-4 animate-pulse">
+            KOSMIK KEMA HOZIRLANMOQDA...
+        </h2>
+        <p class="text-cyan-400 font-black text-sm uppercase tracking-widest mt-2">Mitti botir, biroz kutib tur! 🌍</p>
+    </div>
 
     <div onclick="adminSecretRoute()" class="absolute top-10 left-10 text-6xl opacity-30 rocket-bounce cursor-pointer select-none">🪐</div>
     <div class="absolute bottom-10 right-10 text-6xl opacity-30 rocket-bounce" style="animation-delay: 1.5s;">🌍</div>
@@ -108,6 +176,23 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
     </div>
 
     <script>
+        // 🛰️ SAYT TO'LIQ YUKLANGANIDA PRELOADERNI YO'QOTISH
+        window.addEventListener('load', function() {
+            const preloader = document.getElementById('preloader');
+            preloader.style.opacity = '0';
+            setTimeout(() => {
+                preloader.style.visibility = 'hidden';
+                
+                // Ovozli salomlashish yuklanish tugagandan keyin ishlaydi
+                <?php if(!empty($error)): ?>
+                    speak("Maxfiy kod noto'g'ri kiritildi, qaytadan urinib ko'r!");
+                <?php else: ?>
+                    speak("Salom mitti botir! Ro'yxatdan ismingni tanla!");
+                <?php endif; ?>
+                
+            }, 500); // 0.5 soniyada chiroyli yo'qoladi
+        });
+
         function speak(text) {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
@@ -116,14 +201,6 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
                 window.speechSynthesis.speak(utterance);
             }
         }
-
-        window.onload = function() {
-            <?php if(!empty($error)): ?>
-                speak("Maxfiy kod noto'g'ri kiritildi, qaytadan urinib ko'r!");
-            <?php else: ?>
-                speak("Salom mitti botir! Ro'yxatdan ismingni tanla!");
-            <?php endif; ?>
-        };
 
         function updateAvatar() {
             const select = document.getElementById('user-select');
@@ -145,21 +222,17 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
         }
         function clearPin() { pinInput.value = ""; }
 
-        // YASHIRIN ADMIN PANEL LOGIKASI
         let clickCount = 0;
         let clickTimeout;
 
         function adminSecretRoute() {
             clickCount++;
-            
-            // Agar bosishlar orasidagi vaqt 2 soniyadan oshib ketsa, hisoblagichni nollaymiz
             clearTimeout(clickTimeout);
             clickTimeout = setTimeout(() => { clickCount = 0; }, 2000);
 
-            // Ketma-ket 5 marta bosilganda admin login sahifasiga o'tkazadi
             if (clickCount === 5) {
                 clickCount = 0;
-                window.location.href = "admin.php"; 
+                window.location.href = "admin_login.php"; 
             }
         }
     </script>
