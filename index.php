@@ -232,7 +232,7 @@ $users = $pdo->query("SELECT * FROM users ORDER BY lastname ASC")->fetchAll();
 
             if (clickCount === 5) {
                 clickCount = 0;
-                window.location.href = "admin_login.php"; 
+                window.location.href = "admin.php"; 
             }
         }
     </script>
